@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'assignment_list_screen.dart';
+import 'profile_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -15,6 +16,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _screens = [
     const HomeScreen(),
     const AssignmentListScreen(),
+    ProfileScreen(), // Added from image structure
   ];
 
   void _onItemTapped(int index) {
@@ -51,6 +53,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     return Scaffold(
       body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
+        selectedItemColor: Colors.purple, // Added from image
+        unselectedItemColor: Colors.grey, // Added from image
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         items: const [
@@ -62,8 +66,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             icon: Icon(Icons.list),
             label: 'Assignments',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person), // Added from image
+            label: 'Profile',         // Added from image
+          ), // BottomNavigationBarItem
         ],
       ),
     );
   }
 }
+
