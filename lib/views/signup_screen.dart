@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../presenters/auth_presenter.dart';
 import 'login_screen.dart';
-import 'main_navigation.dart';
+import '../main_navigation.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key}); 
@@ -25,7 +25,7 @@ class _SignupScreenState extends State<SignupScreen>{
       setState(() => _errorMessage = 'Passwords do not match.');
       return;
     }
-    final error = await _presenter.signup(
+    final error = await _presenter.signUp(
       _emailController.text.trim(),
       password,
     );
@@ -34,7 +34,7 @@ class _SignupScreenState extends State<SignupScreen>{
     } else {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const MainNavigation()),
+        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
       );
     }
   }
