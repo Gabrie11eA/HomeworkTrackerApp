@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../models/assignment_model.dart';
 import '../presenters/assignment_presenter.dart';
+
+enum AssignmentFilter { all, completed, incomplete }
 
 class AssignmentListScreen extends StatefulWidget {
   const AssignmentListScreen({super.key});
@@ -11,6 +12,22 @@ class AssignmentListScreen extends StatefulWidget {
 
 class _AssignmentListScreenState extends State<AssignmentListScreen> {
   final AssignmentPresenter _presenter = AssignmentPresenter();
+  bool _isLoading = true;
+
+  AssignmentFilter _filter = AssignmentFilter.all;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAssignments();
+  }
+
+  Future<void> _loadAssignments() async {
+    await _presenter.loadAssignments();
+    setState(() {
+      _isLoading = false;
+    });
+  }
 
   void _showAddAssignmentDialog() {
     String newAssignmentTitle = '';
@@ -62,14 +79,13 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
                   child: const Text('Cancel'),
                 ),
                 TextButton(
-                  onPressed: () {
+                  onPressed: () async {
                     if (newAssignmentTitle.trim().isNotEmpty) {
-                      setState(() {
-                        _presenter.addAssignment(
-                          newAssignmentTitle.trim(),
-                          selectedDate,
-                        );
-                      });
+                      await _presenter.addAssignment(
+                        newAssignmentTitle.trim(),
+                        selectedDate,
+                      );
+                      setState(() {});
                       Navigator.pop(context);
                     }
                   },
@@ -87,28 +103,77 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
   Widget build(BuildContext context) {
     final assignments = _presenter.assignments;
 
+    // FILTER LOGIC
+    final filteredAssignments = assignments.where((assignment) {
+      switch (_filter) {
+        case AssignmentFilter.completed:
+          return assignment.isCompleted;
+        case AssignmentFilter.incomplete:
+          return !assignment.isCompleted;
+        case AssignmentFilter.all:
+        default:
+          return true;
+      }
+    }).toList();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Assignments')),
-      body: ListView.builder(
-        itemCount: assignments.length,
-        itemBuilder: (context, index) {
-          final assignment = assignments[index];
-          return CheckboxListTile(
-            title: Text(assignment.title),
-            subtitle: assignment.dueDate == null
-                ? null
-                : Text(
-                    '${assignment.dueDate!.month}/${assignment.dueDate!.day}/${assignment.dueDate!.year}',
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                // FILTER DROPDOWN
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: DropdownButton<AssignmentFilter>(
+                    value: _filter,
+                    onChanged: (value) {
+                      setState(() {
+                        _filter = value!;
+                      });
+                    },
+                    items: const [
+                      DropdownMenuItem(
+                        value: AssignmentFilter.all,
+                        child: Text("All Assignments"),
+                      ),
+                      DropdownMenuItem(
+                        value: AssignmentFilter.completed,
+                        child: Text("Completed"),
+                      ),
+                      DropdownMenuItem(
+                        value: AssignmentFilter.incomplete,
+                        child: Text("Incomplete"),
+                      ),
+                    ],
                   ),
-            value: assignment.isCompleted,
-            onChanged: (value) {
-              setState(() {
-                _presenter.toggleCompleted(index);
-              });
-            },
-          );
-        },
-      ),
+                ),
+
+                // ASSIGNMENT LIST
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: filteredAssignments.length,
+                    itemBuilder: (context, index) {
+                      final assignment = filteredAssignments[index];
+
+                      return CheckboxListTile(
+                        title: Text(assignment.title),
+                        subtitle: assignment.dueDate != null
+                            ? Text(
+                                "Due: ${assignment.dueDate!.month}/${assignment.dueDate!.day}/${assignment.dueDate!.year}",
+                              )
+                            : null,
+                        value: assignment.isCompleted,
+                        onChanged: (_) async {
+                          await _presenter.toggleCompleted(assignment);
+                          setState(() {});
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddAssignmentDialog,
         child: const Icon(Icons.add),
