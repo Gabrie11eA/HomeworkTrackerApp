@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../presenters/assignment_presenter.dart';
+import '../presenters/course_presenter.dart';
+import '../widgets/add_fab.dart';
 
 enum AssignmentFilter { all, completed, incomplete }
 
@@ -11,8 +13,14 @@ class AssignmentListScreen extends StatefulWidget {
 }
 
 class _AssignmentListScreenState extends State<AssignmentListScreen> {
-  final AssignmentPresenter _presenter = AssignmentPresenter();
+  final AssignmentPresenter _assignmentPresenter = AssignmentPresenter();
+  final CoursePresenter _coursePresenter = CoursePresenter();
+
   bool _isLoading = true;
+
+  String? _selectedCourseFilter;
+  String? _newAssignmentCourse;
+  List<String> _courseNames = [];
 
   AssignmentFilter _filter = AssignmentFilter.all;
 
@@ -20,10 +28,21 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
   void initState() {
     super.initState();
     _loadAssignments();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    await _coursePresenter.loadCourses();
+    await _assignmentPresenter.loadAssignments();
+
+    setState(() {
+      _courseNames =
+          _coursePresenter.courses.map((course) => course.name).toList();
+    });
   }
 
   Future<void> _loadAssignments() async {
-    await _presenter.loadAssignments();
+    await _assignmentPresenter.loadAssignments();
     setState(() {
       _isLoading = false;
     });
@@ -31,6 +50,8 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
 
   void _showAddAssignmentDialog() {
     String newAssignmentTitle = '';
+    _newAssignmentCourse =
+        _courseNames.isNotEmpty ? _courseNames.first : null;
     DateTime? selectedDate;
 
     showDialog(
@@ -44,7 +65,6 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextField(
-                    autofocus: true,
                     decoration: const InputDecoration(
                       hintText: 'Enter assignment title',
                     ),
@@ -52,24 +72,20 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
                       newAssignmentTitle = value;
                     },
                   ),
-                  const SizedBox(height: 20),
-                  OutlinedButton(
-                    onPressed: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2030),
-                      );
+                  const SizedBox(height: 12),
+                  DropdownButton<String>(
+                    value: _newAssignmentCourse,
+                    onChanged: (value) {
                       setStateDialog(() {
-                        selectedDate = picked;
+                        _newAssignmentCourse = value;
                       });
                     },
-                    child: Text(
-                      selectedDate == null
-                          ? 'Select Due Date'
-                          : '${selectedDate!.month}/${selectedDate!.day}/${selectedDate!.year}',
-                    ),
+                    items: _courseNames.map((course) {
+                      return DropdownMenuItem(
+                        value: course,
+                        child: Text(course),
+                      );
+                    }).toList(),
                   ),
                 ],
               ),
@@ -80,9 +96,11 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
                 ),
                 TextButton(
                   onPressed: () async {
-                    if (newAssignmentTitle.trim().isNotEmpty) {
-                      await _presenter.addAssignment(
+                    if (newAssignmentTitle.trim().isNotEmpty &&
+                        _newAssignmentCourse != null) {
+                      await _assignmentPresenter.addAssignment(
                         newAssignmentTitle.trim(),
+                        _newAssignmentCourse!,
                         selectedDate,
                       );
                       setState(() {});
@@ -101,10 +119,17 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final assignments = _presenter.assignments;
+    final assignments = _assignmentPresenter.assignments;
 
-    // FILTER LOGIC
-    final filteredAssignments = assignments.where((assignment) {
+    // COURSE FILTER LOGIC
+    final displayedAssignments = _selectedCourseFilter == null
+        ? assignments
+        : assignments
+            .where((a) => a.courseName == _selectedCourseFilter)
+            .toList();
+
+    // COMPLETION FILTER LOGIC
+    final filteredAssignments = displayedAssignments.where((assignment) {
       switch (_filter) {
         case AssignmentFilter.completed:
           return assignment.isCompleted;
@@ -117,12 +142,40 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
     }).toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Assignments')),
+      appBar: AppBar(
+        title: const Text('Assignments'),
+        actions: [
+          if (_courseNames.isNotEmpty)
+            DropdownButton<String>(
+              hint: const Text(
+                'Filter by course',
+                style: TextStyle(color: Colors.white),
+              ),
+              dropdownColor: Colors.blue[100],
+              value: _selectedCourseFilter,
+              onChanged: (value) {
+                setState(() {
+                  _selectedCourseFilter = value;
+                });
+              },
+              items: [
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('All Courses'),
+                ),
+                ..._courseNames.map(
+                  (name) =>
+                      DropdownMenuItem(value: name, child: Text(name)),
+                ),
+              ],
+            ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // FILTER DROPDOWN
+                // COMPLETION FILTER DROPDOWN
                 Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: DropdownButton<AssignmentFilter>(
@@ -158,14 +211,11 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
 
                       return CheckboxListTile(
                         title: Text(assignment.title),
-                        subtitle: assignment.dueDate != null
-                            ? Text(
-                                "Due: ${assignment.dueDate!.month}/${assignment.dueDate!.day}/${assignment.dueDate!.year}",
-                              )
-                            : null,
+                        subtitle: Text('Course: ${assignment.courseName}'),
                         value: assignment.isCompleted,
                         onChanged: (_) async {
-                          await _presenter.toggleCompleted(assignment);
+                          await _assignmentPresenter.toggleCompleted(
+                              assignment);
                           setState(() {});
                         },
                       );
@@ -174,9 +224,8 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
                 ),
               ],
             ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: AddFAB(
         onPressed: _showAddAssignmentDialog,
-        child: const Icon(Icons.add),
       ),
     );
   }

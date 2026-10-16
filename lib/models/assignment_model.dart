@@ -6,10 +6,12 @@ class Assignment {
   final String title;
   bool isCompleted;
   DateTime? dueDate;
+  final String courseName;
 
   Assignment({
     required this.id,
     required this.title,
+    required this.courseName,
     this.isCompleted = false,
     this.dueDate,
   });
@@ -31,6 +33,7 @@ class Assignment {
           Assignment(
             id: key,
             title: value['title'],
+            courseName: value['courseName'] ?? 'Unknown',
             isCompleted: value['isCompleted'] ?? false,
             dueDate: value['dueDate'] != null
                 ? DateTime.parse(value['dueDate'])
@@ -43,7 +46,7 @@ class Assignment {
     return assignments;
   }
 
-  static Future<Assignment?> addAssignment(String title, DateTime? dueDate) async {
+  static Future<Assignment?> addAssignment(String title, String courseName, DateTime? dueDate) async {
     final userId = _auth.currentUser?.uid;
     if (userId == null) return null;
 
@@ -51,6 +54,7 @@ class Assignment {
 
     await newRef.set({
       'title': title,
+      'courseName': courseName,
       'isCompleted': false,
       'dueDate': dueDate?.toIso8601String(),
     });
@@ -58,6 +62,7 @@ class Assignment {
     return Assignment(
       id: newRef.key!,
       title: title,
+      courseName: courseName,
       isCompleted: false,
       dueDate: dueDate,
     );

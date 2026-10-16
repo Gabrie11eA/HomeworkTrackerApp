@@ -12,8 +12,8 @@ class AssignmentPresenter {
       ..addAll(fetched);
   }
 
-  Future<void> addAssignment(String title, DateTime? dueDate) async {
-    final newAssignment = await Assignment.addAssignment(title, dueDate);
+  Future<void> addAssignment(String title, String courseName, DateTime? dueDate) async {
+    final newAssignment = await Assignment.addAssignment(title, courseName, dueDate);
     if (newAssignment != null) {
       _assignments.add(newAssignment);
     }

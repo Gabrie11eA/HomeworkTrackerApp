@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../presenters/course_presenter.dart';
+import '../widgets/add_fab.dart';
 
 class CourseListScreen extends StatefulWidget {
   const CourseListScreen({super.key});
@@ -10,7 +11,9 @@ class CourseListScreen extends StatefulWidget {
 
 class _CourseListScreenState extends State<CourseListScreen> {
   final CoursePresenter presenter = CoursePresenter();
+
   bool _isLoading = true;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -26,8 +29,8 @@ class _CourseListScreenState extends State<CourseListScreen> {
   }
 
   void _showAddCourseDialog() {
-    String name = '';
-    String? description;
+    String newCourseName = '';
+    String? newCourseDescription;
 
     showDialog(
       context: context,
@@ -38,12 +41,17 @@ class _CourseListScreenState extends State<CourseListScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                decoration: const InputDecoration(labelText: 'Course Name'),
-                onChanged: (value) => name = value,
+                decoration: const InputDecoration(
+                  hintText: 'Course name',
+                ),
+                onChanged: (value) => newCourseName = value,
               ),
+              const SizedBox(height: 12),
               TextField(
-                decoration: const InputDecoration(labelText: 'Description (optional)'),
-                onChanged: (value) => description = value,
+                decoration: const InputDecoration(
+                  hintText: 'Description (optional)',
+                ),
+                onChanged: (value) => newCourseDescription = value,
               ),
             ],
           ),
@@ -54,8 +62,11 @@ class _CourseListScreenState extends State<CourseListScreen> {
             ),
             TextButton(
               onPressed: () async {
-                if (name.trim().isNotEmpty) {
-                  await presenter.addCourse(name.trim(), description);
+                if (newCourseName.trim().isNotEmpty) {
+                  await presenter.addCourse(
+                    newCourseName.trim(),
+                    newCourseDescription,
+                  );
                   setState(() {});
                   Navigator.pop(context);
                 }
@@ -72,26 +83,52 @@ class _CourseListScreenState extends State<CourseListScreen> {
   Widget build(BuildContext context) {
     final courses = presenter.courses;
 
+    // SEARCH FILTER
+    final filteredCourses = courses.where((course) {
+      return course.name.toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Courses')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: courses.length,
-              itemBuilder: (context, index) {
-                final course = courses[index];
-                return ListTile(
-                  title: Text(course.name),
-                  subtitle: course.description != null
-                      ? Text(course.description!)
-                      : null,
-                );
-              },
+          : Column(
+              children: [
+                // SEARCH BAR
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Search Courses',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                    },
+                  ),
+                ),
+
+                // COURSE LIST
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: filteredCourses.length,
+                    itemBuilder: (context, index) {
+                      final course = filteredCourses[index];
+                      return ListTile(
+                        title: Text(course.name),
+                        subtitle: course.description != null
+                            ? Text(course.description!)
+                            : null,
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddCourseDialog,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: AddFAB(onPressed: _showAddCourseDialog),
     );
   }
 }
